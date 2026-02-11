@@ -110,7 +110,7 @@ def show():
         }
         </style>
         <div class="custom-header">
-            株式会社Lia 管理会計
+            HAL'S BAGEL. 管理会計
         </div>
         """,
         unsafe_allow_html=True
