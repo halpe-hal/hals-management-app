@@ -148,11 +148,15 @@ def show_monthly_io():
     with col2:
         division_options = get_divisions()
 
-        allowed_divisions = ["HAL’S BAGEL. 自由が丘店"]  # ← 選択させたい事業部だけ
-        filtered_divisions = [d for d in division_options if d in allowed_divisions]
-
         if not division_options:
             st.warning("事業部が未登録です。先に『事業部設定』から登録してください。")
+            return
+
+        BRAND_NAME = "HAL'S BAGEL."
+        filtered_divisions = [d for d in division_options if BRAND_NAME in d]
+
+        if not filtered_divisions:
+            st.warning("HAL'S BAGEL. の事業部が登録されていません。")
             return
         top_category = st.selectbox("事業部を選択", filtered_divisions)
 
