@@ -44,7 +44,8 @@ def show_graph_analysis():
     start_date, end_date = get_filtered_period(period_option)
 
     # データ取得
-    divisions = get_divisions()
+    BRAND_NAME = "HAL'S BAGEL."
+    divisions = [d for d in get_divisions() if BRAND_NAME in d]
     sales_data = get_sales_totals_all(list(range(start_date.year - 1, end_date.year + 1)))
     expense_data = get_expense_totals_all(list(range(start_date.year - 1, end_date.year + 1)))
 
