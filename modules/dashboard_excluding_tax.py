@@ -8,6 +8,7 @@ from db.all_sales_total import get_sales_totals_batch, get_sales_totals_all
 from db.all_expense_total import get_expense_totals_batch, get_expense_totals_all
 from db.expense_targets import get_expense_target_by_top_category
 from db.divisions import get_divisions
+from db.brands import get_brands
 from modules.header import render_pl_table
 
 # 年度生成
@@ -48,30 +49,31 @@ def show_dashboard_excluding_tax():
     years = sorted(set(int(m.split("-")[0]) for m in months))
 
     divisions = get_divisions()
+    brands = get_brands()
 
-    allowed_divisions = ["HAL’S BAGEL. 自由が丘店"]  # ← 選択させたい事業部だけ
-    filtered_divisions = [d for d in divisions if d in allowed_divisions]
+    # HAL’S BAGEL. に属する事業部のみ絞り込む
+    BRAND_NAME = "HAL'S BAGEL."
+    brand_divs = [d for d in divisions if BRAND_NAME in d]
 
-    selected_div = st.selectbox("事業部を選択", filtered_divisions)
+    # 「HAL’S BAGEL. 合計」を先頭に追加
+    divisions_for_select = [f"{BRAND_NAME} 合計"] + brand_divs
+
+    selected_div = st.selectbox("事業部を選択", divisions_for_select)
+
+    # --- 複数事業部を集計するヘルパー ---
+    def aggregate_multi_divisions(div_list):
+        s_agg = defaultdict(float)
+        e_agg = defaultdict(float)
+        for div in div_list:
+            for d in get_sales_totals_batch(years, div):
+                s_agg[(d["year"], d["month"], d["tax_rate"])] += d.get("total_amount", 0)
+            for d in get_expense_totals_batch(years, div):
+                e_agg[(d["year"], d["month"], d["second_category"])] += d.get("total_cost", 0)
+        return dict(s_agg), dict(e_agg)
 
     # --- データ取得 ---
-    if selected_div == "事業本部":
-        sales_data = get_sales_totals_all(years)
-        expense_data = get_expense_totals_all(years)
-
-        # 合算処理
-        sales_agg = defaultdict(float)
-        for d in sales_data:
-            key = (d["year"], d["month"], d["tax_rate"])
-            sales_agg[key] += d.get("total_amount", 0)
-
-        expense_agg = defaultdict(float)
-        for d in expense_data:
-            key = (d["year"], d["month"], d["second_category"])
-            expense_agg[key] += d.get("total_cost", 0)
-
-        sales_dict = dict(sales_agg)
-        expense_dict = dict(expense_agg)
+    if selected_div == f"{BRAND_NAME} 合計":
+        sales_dict, expense_dict = aggregate_multi_divisions(brand_divs)
 
     else:
         sales_data = get_sales_totals_batch(years, selected_div)
@@ -83,7 +85,7 @@ def show_dashboard_excluding_tax():
     pl_dict = {
         "売上（税率10%）": {}, "売上（税率8%）": {}, "その他売上（税率10%）": {}, "その他売上（税率8%）": {},
         "総売上": {}, "原価": {}, "売上総利益": {}, "人件費": {}, "源泉税・地方税・社会保険料": {}, "水道光熱費": {}, "消耗品費・その他諸経費": {},
-        "その他固定費": {}, "家賃": {}, "広告費": {}, "融資返済利息": {}, "実質営業利益": {}, "臨時諸経費": {}, "（非課税）保険料・税金等": {}, "最終営業利益": {},
+        "その他固定費": {}, "家賃": {}, "広告費": {}, "融資返済利息": {}, "実質営業利益": {}, "臨時諸経費": {}, "（非課税）保険料・税金等": {}, "最終営業利益": {}, "インセンティブ支給総額": {}, "税額計算利益": {},
          "法人税額": {}, "融資返済元金": {}, "内部留保": {}
     }
 
@@ -105,16 +107,18 @@ def show_dashboard_excluding_tax():
         臨時 = expense_dict.get((year, month, "臨時諸経費"), 0) / 1.1
         税金等 = expense_dict.get((year, month, "（非課税）保険料・税金等"), 0) / 1.1
         融資元金 = expense_dict.get((year, month, "融資返済元金"), 0)
+        インセンティブ支給総額 = expense_dict.get((year, month, "インセンティブ支給総額"), 0) / 1.1
 
         総売上 = u10 + u8 + o10 + o8
         売上総利益 = 総売上 - 原価
         実質営業利益 = 売上総利益 - 人件費 - 水道光熱費 - 消耗品  - その他固定費 - 家賃 - 広告費 - 融資利息
         最終営業利益 = 実質営業利益 - 臨時 - 税金等
-        法人税額 = 最終営業利益 * 0.3358 if 最終営業利益 > 0 else 0
-        内部留保 = 最終営業利益 - 法人税額 - 融資元金
+        税額計算利益 = 最終営業利益 - インセンティブ支給総額
+        法人税額 = 税額計算利益 * 0.3358 if 税額計算利益 > 0 else 0
+        内部留保 = 税額計算利益 - 法人税額 - 融資元金
 
         for key, value in zip(pl_dict.keys(), [u10, u8, o10, o8, 総売上, 原価, 売上総利益, 人件費, 非経費人件費, 水道光熱費, 消耗品,
-                                               その他固定費, 家賃, 広告費, 融資利息, 実質営業利益, 臨時, 税金等, 最終営業利益,
+                                               その他固定費, 家賃, 広告費, 融資利息, 実質営業利益, 臨時, 税金等, 最終営業利益, インセンティブ支給総額, 税額計算利益,
                                                 法人税額, 融資元金, 内部留保]):
             pl_dict[key][ym] = value
 
@@ -138,6 +142,8 @@ def show_dashboard_excluding_tax():
         pl_dict["臨時諸経費"][ym] = 臨時
         pl_dict["（非課税）保険料・税金等"][ym] = 税金等
         pl_dict["最終営業利益"][ym] = 最終営業利益
+        pl_dict["インセンティブ支給総額"][ym] = インセンティブ支給総額
+        pl_dict["税額計算利益"][ym] = 税額計算利益
         pl_dict["法人税額"][ym] = 法人税額
         pl_dict["融資返済元金"][ym] = 融資元金
         pl_dict["内部留保"][ym] = 内部留保
@@ -149,8 +155,8 @@ def show_dashboard_excluding_tax():
     df = df[["合計"] + months]
 
     # 合計値を再計算して上書きする
-    df.at["法人税額", "合計"] = df.at["最終営業利益", "合計"] * 0.3358 if df.at["最終営業利益", "合計"] > 0 else 70000
-    df.at["内部留保", "合計"] = df.at["最終営業利益", "合計"] - df.at["法人税額", "合計"] - df.at["融資返済元金", "合計"]
+    df.at["法人税額", "合計"] = df.at["税額計算利益", "合計"] * 0.3358 if df.at["税額計算利益", "合計"] > 0 else 70000
+    df.at["内部留保", "合計"] = df.at["税額計算利益", "合計"] - df.at["法人税額", "合計"] - df.at["融資返済元金", "合計"]
 
     # --- 比率行挿入 ---
     def pct_row(numerator_row):
@@ -210,7 +216,8 @@ def show_dashboard_excluding_tax():
             "その他固定費率": target.get("other_fixed_rate", 0),
             "家賃率": target.get("rent_rate", 0),
             "FLR比率": target.get("flr_rate", 0),
-            "実質営業利益率": target.get("first_op_profit_rate", 0)
+            "実質営業利益率": target.get("first_op_profit_rate", 0),
+            "最終営業利益率": target.get("first_op_profit_rate", 0)
         }
     else:
         targets = {}
