@@ -55,8 +55,8 @@ def show_dashboard():
     BRAND_NAME = "HAL'S BAGEL."
     brand_divs = [d for d in divisions if BRAND_NAME in d]
 
-    # 「HAL’S BAGEL. 合計」を先頭に追加
-    divisions_for_select = [f"{BRAND_NAME} 合計"] + brand_divs
+    # 「HAL’S BAGEL.合計」を先頭に追加
+    divisions_for_select = [f"{BRAND_NAME}合計"] + brand_divs
 
     selected_div = st.selectbox("事業部を選択", divisions_for_select)
 
@@ -72,7 +72,7 @@ def show_dashboard():
         return dict(s_agg), dict(e_agg)
 
     # --- データ取得 ---
-    if selected_div == f"{BRAND_NAME} 合計":
+    if selected_div == f"{BRAND_NAME}合計":
         sales_dict, expense_dict = aggregate_multi_divisions(brand_divs)
 
     else:
