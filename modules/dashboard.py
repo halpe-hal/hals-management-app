@@ -55,8 +55,9 @@ def show_dashboard():
     BRAND_NAME = "HAL'S BAGEL."
     brand_divs = [d for d in divisions if BRAND_NAME in d]
 
-    # 「HAL’S BAGEL.合計」を先頭に追加
-    divisions_for_select = [f"{BRAND_NAME}合計"] + brand_divs
+    # ブランド内の[店舗]数が2以上の場合のみブランド合計を表示
+    brand_store_divs = [d for d in brand_divs if "[店舗]" in d]
+    divisions_for_select = ([f"{BRAND_NAME}合計"] if len(brand_store_divs) > 1 else []) + brand_divs
 
     selected_div = st.selectbox("事業部を選択", divisions_for_select)
 
