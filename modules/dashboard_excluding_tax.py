@@ -7,8 +7,7 @@ from collections import defaultdict
 from db.all_sales_total import get_sales_totals_batch, get_sales_totals_all
 from db.all_expense_total import get_expense_totals_batch, get_expense_totals_all
 from db.expense_targets import get_expense_target_by_top_category
-from db.divisions import get_divisions
-from db.brands import get_brands
+from db.divisions import get_divisions, get_division_records
 from modules.header import render_pl_table
 
 # 年度生成
@@ -48,16 +47,12 @@ def show_dashboard_excluding_tax():
     months = get_months_in_term(selected_term)
     years = sorted(set(int(m.split("-")[0]) for m in months))
 
-    divisions = get_divisions()
-    brands = get_brands()
-
-    # HAL’S BAGEL. に属する事業部のみ絞り込む
     BRAND_NAME = "HAL'S BAGEL."
-    brand_divs = [d for d in divisions if BRAND_NAME in d]
+    division_records = get_division_records()
+    brand_divs = [r["name"] for r in division_records if r.get("brand") == BRAND_NAME]
 
-    # ブランド内の[店舗]数が2以上の場合のみブランド合計を表示
-    brand_store_divs = [d for d in brand_divs if "[店舗]" in d]
-    divisions_for_select = ([f"{BRAND_NAME}合計"] if len(brand_store_divs) > 1 else []) + brand_divs
+    # brandに紐づく事業部が2以上の場合のみブランド合計を表示
+    divisions_for_select = ([f"{BRAND_NAME}合計"] if len(brand_divs) >= 2 else []) + brand_divs
 
     selected_div = st.selectbox("事業部を選択", divisions_for_select)
 

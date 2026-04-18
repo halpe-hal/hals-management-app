@@ -8,7 +8,7 @@ from db.all_sales_total import get_sales_totals_all
 from db.all_expense_total import get_expense_totals_all
 from db.expense_targets import get_expense_target_by_top_category
 from db.expense_categories import get_expense_categories
-from db.divisions import get_divisions
+from db.divisions import get_divisions, get_division_records
 
 # --- 期間オプションから日付範囲を返す ---
 def get_filtered_period(option: str):
@@ -45,10 +45,9 @@ def show_graph_analysis():
 
     # データ取得
     BRAND_NAME = "HAL'S BAGEL."
-    all_divisions = get_divisions()
-    brand_divs = [d for d in all_divisions if BRAND_NAME in d]
-    brand_store_divs = [d for d in brand_divs if "[店舗]" in d]
-    tab_names = ([f"{BRAND_NAME}合計"] if len(brand_store_divs) > 1 else []) + brand_divs
+    division_records = get_division_records()
+    brand_divs = [r["name"] for r in division_records if r.get("brand") == BRAND_NAME]
+    tab_names = ([f"{BRAND_NAME}合計"] if len(brand_divs) >= 2 else []) + brand_divs
     sales_data = get_sales_totals_all(list(range(start_date.year - 1, end_date.year + 1)))
     expense_data = get_expense_totals_all(list(range(start_date.year - 1, end_date.year + 1)))
 
